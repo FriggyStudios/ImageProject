@@ -1,6 +1,16 @@
 // useful image processing functions for Canvas imageData
 // Author: Sam Redfern, 2014-2016
 
+function sobel(imageData)
+{
+  //Calculate Gx, Gy for each point
+
+  //If M^2 = Gx^2 + Gy^2 is above threshold and two pixels' M calculated from theta = arctan(Gy/Gx) are maximially different to current pixel M, then mark as edge
+
+  //If pixel is edge, check two pixels along edge, if either not edge and have same direction M^2 is greater than LOWER threshold and maximally differnet to neighbors, then mark as edge
+  //Repeat until no added edges
+}
+
 function readImage(canvas,filename) {
       var img = new Image();
       img.src = filename;
