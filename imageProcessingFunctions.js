@@ -1,29 +1,197 @@
 // useful image processing functions for Canvas imageData
 // Author: Sam Redfern, 2014-2016
 
+function gaussian(imageData)
+{
+	var wid = imageData.width;
+	var hgt = imageData.height;	
+	
+	// create a temporary array for output
+	var outputData = new Array();
+	var sz = imageData.data.length;
+	for (i=0;i<sz;i++)
+		outputData[i] = imageData.data[i];
+	
+	var gauss = [];
+	gauss[0] = [0.00000067,	0.00002292,	0.00019117,	0.00038771,	0.00019117,	0.00002292,	0.00000067];
+	gauss[1] = [0.00002292,	0.00078634,	0.00655965,	0.01330373,	0.00655965,	0.00078633,	0.00002292];
+	gauss[2] = [0.00019117,	0.00655965,	0.05472157,	0.11098164,	0.05472157,	0.00655965,	0.00019117];
+	gauss[3] = [0.00038771,	0.01330373,	0.11098164,	0.22508352,	0.11098164,	0.01330373,	0.00038771];
+	gauss[4] = [0.00019117,	0.00655965,	0.05472157,	0.11098164,	0.05472157,	0.00655965,	0.00019117];
+	gauss[5] = [0.00002292,	0.00078633,	0.00655965,	0.01330373,	0.00655965,	0.00078633,	0.00002292];
+	gauss[6] = [0.00000067,	0.00002292,	0.00019117,	0.00038771,	0.00019117,	0.00002292,	0.00000067];
+	
+	for (x=0;x<wid;x++) {
+		for (y=0;y<hgt;y++) {
+			var rSum = 0;
+			var gSum = 0;
+			var bSum = 0;
+			for (xx=-3;xx<=3;xx++) {
+				for (yy=-3;yy<=3;yy++) {
+					if(x+xx >= 0 && x+xx < wid && y+yy >= 0 && y+yy < hgt){
+						var index = (x+xx + (y+yy)*wid) * 4;
+						rSum += imageData.data[index]*gauss[xx+3][yy+3];
+						gSum += imageData.data[index+1]*gauss[xx+3][yy+3];
+						bSum += imageData.data[index+2]*gauss[xx+3][yy+3];
+					}
+				}
+			}
+			var jindex = (x + y*wid)*4;
+			outputData[jindex] = rSum;
+			outputData[jindex+1] = gSum;
+			outputData[jindex+2] = bSum;
+		}
+	}
+	//Output data
+	for (i=0;i<sz;i++)
+		imageData.data[i] = outputData[i];
+}
+
+function markEdge(outputData,length,theta,wid,mSquared,i,maximalDifference)
+{
+	var checkPixels = [];
+	if(theta <= 22.5 || theta >= 157.5){
+		checkPixels[0] = [-1,0];
+		checkPixels[1] = [1,0];
+	}
+	else if(theta > 22.5 && theta <= 67.5){
+		checkPixels[0] = [-1,-1];
+		checkPixels[1] = [1,1];
+	}
+	else if(theta > 67.5 && theta < 112.5){
+		checkPixels[0] = [0,-1];
+		checkPixels[1] = [0,1];
+	}
+	else //if(theta > 112.5 & theta < 157.5)
+	{
+		checkPixels[0] = [-1,1];
+		checkPixels[1] = [1,-1];
+	}
+	if(((i+checkPixels[0][0]+checkPixels[0][1]*wid < 0 || i+checkPixels[0][0]+checkPixels[0][1]*wid >= length) | maximalDifference <= (mSquared[i] - mSquared[i+checkPixels[0][0]+checkPixels[0][1]*wid])) &&
+		((i+checkPixels[1][0]+checkPixels[1][1]*wid < 0 || i+checkPixels[1][0]+checkPixels[1][1]*wid >= length) | maximalDifference <= (mSquared[i] - mSquared[i+checkPixels[1][0]+checkPixels[1][1]*wid])))
+	{
+		outputData[i*4]	= outputData[i*4+1] = outputData[i*4+2] = 255;
+		return true;
+	}
+	return false;
+}
 function sobel(imageData)
 {
-  //Calculate Gx, Gy for each point
-
+	var higherThreshold = 100;
+	var lowerThreshold = 	higherThreshold/9;
+	var maximalDifference = 80;
+	var wid = imageData.width;
+	var hgt = imageData.height;	
+	
+	// create a temporary array for output
+	var outputData = new Array();
+	var sz = imageData.data.length;
+	for (i=0;i<sz;i++)
+		outputData[i] = imageData.data[i];
+	
+  //Calculate Gx, Gy
+	var Gx = [];
+	var Gy = [];
+	var mSquared = [];
+	var theta = [];
+	var xKernel = [];
+	xKernel[0] = [-1,0,1];
+	xKernel[1] = [-2,0,2];
+	xKernel[2] = [-1,0,1];
+	var yKernel = [];
+	yKernel[0] = [1,2,1];
+	yKernel[1] = [0,0,0];
+	yKernel[2] = [-1,-2,-1];
+	for (x=0;x<wid;x++) {
+		for (y=0;y<hgt;y++) {
+			var xSum = 0;
+			var ySum = 0;
+			for (xx=-1;xx<=1;xx++) {
+				for (yy=-1;yy<=1;yy++) {
+					if(x+xx >= 0 && x+xx < wid && y+yy >= 0 && y+yy < hgt){
+						var index = (x+xx + (y+yy)*wid) * 4;
+						xSum += imageData.data[index]*xKernel[xx+1][yy+1];
+						ySum += imageData.data[index]*yKernel[xx+1][yy+1];
+					}
+				}
+			}
+			Gx[x+y*wid]=xSum;
+			Gy[x+y*wid]=ySum;
+			theta[x+y*wid] = Math.atan(Math.abs(Gy[x+y*wid])/Math.abs(Gx[x+y*wid]));
+			mSquared[x+y*wid] = Gx[x+y*wid]*Gx[x+y*wid] + Gy[x+y*wid]*Gy[x+y*wid];
+		}
+	}
+	//All pixels black initially
+	for (i=0;i<Gx.length;i++)
+		outputData[i*4]	= outputData[i*4+1] = outputData[i*4+2] = 0;
+	
   //If M^2 = Gx^2 + Gy^2 is above threshold and two pixels' M calculated from theta = arctan(Gy/Gx) are maximially different to current pixel M, then mark as edge
-
-  //If pixel is edge, check two pixels along edge, if either not edge and have same direction M^2 is greater than LOWER threshold and maximally differnet to neighbors, then mark as edge
+	for(i = 0; i<Gx.length;i++){
+		if(higherThreshold <= mSquared[i]){
+			markEdge(outputData,Gx.length,theta[i],wid,mSquared,i,maximalDifference/5);
+		}
+	}
+  //If pixel is edge, check two pixels along edge, if either not edge and have same direction M^2 is greater than LOWER threshold and maximally different to neighbors, then mark as edge
   //Repeat until no added edges
+	var change = true;
+	while(change)
+	{
+		change = false;
+		for (i=0;i<Gx.length;i++){
+			if(outputData[i*4] == 255)
+			{
+				var edgePixels = [];
+				if(theta[i] <= 22.5 || theta[i] >= 157.5){
+				edgePixels[0] = [0,-1];
+				edgePixels[1] = [0,1];
+				}
+				else if(theta[i] > 22.5 && theta[i] <= 67.5){
+					edgePixels[0] = [-1,1];
+					edgePixels[1] = [1,-1];
+				}
+				else if(theta[i] > 67.5 && theta[i] < 112.5){
+					edgePixels[0] = [-1,0];
+					edgePixels[1] = [1,0];
+				}
+				else //if(theta[i] > 112.5 & theta[i] < 157.5)
+				{
+					edgePixels[0] = [-1,-1];
+					edgePixels[1] = [1,1];
+				}
+				
+				if(i+edgePixels[0][0]+edgePixels[0][1]*wid >= 0 && i+edgePixels[0][0]+edgePixels[0][1]*wid < Gx.length)
+				{
+					if(lowerThreshold <= mSquared[i+edgePixels[0][0]+edgePixels[0][1]*wid]){
+						change = markEdge(outputData,Gx.length,theta[i+edgePixels[0][0]+edgePixels[0][1]*wid],wid,mSquared,i+edgePixels[0][0]+edgePixels[0][1]*wid,maximalDifference);
+					}	
+				}
+				if(i+edgePixels[1][0]+edgePixels[1][1]*wid >= 0 && i+edgePixels[1][0]+edgePixels[1][1]*wid < Gx.length)
+				{
+					if(lowerThreshold <= mSquared[i+edgePixels[1][0]+edgePixels[1][1]*wid]){
+						change = markEdge(outputData,Gx.length,theta[i+edgePixels[1][0]+edgePixels[1][1]*wid],wid,mSquared,i+edgePixels[1][0]+edgePixels[1][1]*wid,maximalDifference);
+					}	
+				}
+			}
+		}
+	}
+	//Output data
+	for (i=0;i<sz;i++)
+		imageData.data[i] = outputData[i];
 }
 
 function readImage(canvas,filename) {
-      var img = new Image();
-      img.src = filename;
-      img.onload = function() {
-         var wid = img.naturalWidth;
-         var hgt = img.naturalHeight;
-         canvas.width = wid; 
-         canvas.height = hgt;
-         ctx = canvas.getContext("2d"); // global var
-         ctx.drawImage(img,0,0,wid,hgt);
-         imgWidth = wid; // global var
-         imgHeight = hgt; // global var
-      }	
+	var img = new Image();
+	img.src = filename;
+	img.onload = function() {
+		 var wid = img.naturalWidth;
+		 var hgt = img.naturalHeight;
+		 canvas.width = wid; 
+		 canvas.height = hgt;
+		 ctx = canvas.getContext("2d"); // global var
+		 ctx.drawImage(img,0,0,wid,hgt);
+		 imgWidth = wid; // global var
+		 imgHeight = hgt; // global var
+	}	
 }
 
 function greyscale(imageData) {
