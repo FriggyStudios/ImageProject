@@ -78,7 +78,7 @@ function markEdge(outputData,length,theta,wid,mSquared,i,maximalDifference)
 function sobel(imageData)
 {
 	var higherThreshold = 100;
-	var lowerThreshold = 	higherThreshold/9;
+	var lowerThreshold = 	higherThreshold/3;
 	var maximalDifference = 80;
 	var wid = imageData.width;
 	var hgt = imageData.height;	
@@ -102,8 +102,8 @@ function sobel(imageData)
 	yKernel[0] = [1,2,1];
 	yKernel[1] = [0,0,0];
 	yKernel[2] = [-1,-2,-1];
-	for (x=0;x<wid;x++) {
-		for (y=0;y<hgt;y++) {
+	for (x=1;x<wid;x++) {
+		for (y=1;y<hgt;y++) {
 			var xSum = 0;
 			var ySum = 0;
 			for (xx=-1;xx<=1;xx++) {
@@ -128,18 +128,17 @@ function sobel(imageData)
   //If M^2 = Gx^2 + Gy^2 is above threshold and two pixels' M calculated from theta = arctan(Gy/Gx) are maximially different to current pixel M, then mark as edge
 	for(i = 0; i<Gx.length;i++){
 		if(higherThreshold <= mSquared[i]){
-			markEdge(outputData,Gx.length,theta[i],wid,mSquared,i,maximalDifference/5);
+			markEdge(outputData,Gx.length,theta[i],wid,mSquared,i,maximalDifference);
 		}
 	}
   //If pixel is edge, check two pixels along edge, if either not edge and have same direction M^2 is greater than LOWER threshold and maximally different to neighbors, then mark as edge
   //Repeat until no added edges
 	var change = true;
-	while(change)
+	for(var j = 0;j < 200;j++)
 	{
 		change = false;
 		for (i=0;i<Gx.length;i++){
-			if(outputData[i*4] == 255)
-			{
+			if(outputData[i*4] == 255){
 				var edgePixels = [];
 				if(theta[i] <= 22.5 || theta[i] >= 157.5){
 				edgePixels[0] = [0,-1];
@@ -162,16 +161,26 @@ function sobel(imageData)
 				if(i+edgePixels[0][0]+edgePixels[0][1]*wid >= 0 && i+edgePixels[0][0]+edgePixels[0][1]*wid < Gx.length)
 				{
 					if(lowerThreshold <= mSquared[i+edgePixels[0][0]+edgePixels[0][1]*wid]){
-						change = markEdge(outputData,Gx.length,theta[i+edgePixels[0][0]+edgePixels[0][1]*wid],wid,mSquared,i+edgePixels[0][0]+edgePixels[0][1]*wid,maximalDifference);
+						if(markEdge(outputData,Gx.length,theta[i+edgePixels[0][0]+edgePixels[0][1]*wid],wid,mSquared,i+edgePixels[0][0]+edgePixels[0][1]*wid,maximalDifference/3	))
+						{
+							change = true;
+						}
 					}	
 				}
 				if(i+edgePixels[1][0]+edgePixels[1][1]*wid >= 0 && i+edgePixels[1][0]+edgePixels[1][1]*wid < Gx.length)
 				{
 					if(lowerThreshold <= mSquared[i+edgePixels[1][0]+edgePixels[1][1]*wid]){
-						change = markEdge(outputData,Gx.length,theta[i+edgePixels[1][0]+edgePixels[1][1]*wid],wid,mSquared,i+edgePixels[1][0]+edgePixels[1][1]*wid,maximalDifference);
+						if(markEdge(outputData,Gx.length,theta[i+edgePixels[1][0]+edgePixels[1][1]*wid],wid,mSquared,i+edgePixels[1][0]+edgePixels[1][1]*wid,maximalDifference/3))
+						{
+							change = true;
+						}
 					}	
 				}
 			}
+		}
+		if(!change)
+		{
+			break;
 		}
 	}
 	//Output data
